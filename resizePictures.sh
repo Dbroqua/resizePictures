@@ -54,7 +54,7 @@ for image in {*.jpg,*.JPG} ; do
         continue
     fi
 
-    # Convert covert
+    # Convert cover
     if [ "${image}" == "${COVERFILE}" ] ; then
         echo -e "${GREEN}Converting cover file${RESET}"
 
