@@ -48,7 +48,7 @@ if [ ! -d ${DEST} ] ; then
 fi
 
 # For each files
-for image in *.jpg ; do
+for image in {*.jpg,*.JPG} ; do
     if [ ! -f ${image} ] ; then
         echo -e "${RED}# No file found in ${PWD}${RESET}"
         continue
