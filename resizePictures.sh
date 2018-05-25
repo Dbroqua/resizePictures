@@ -32,7 +32,7 @@ COVERFILE="cover.jpg"
 COVERRATIO=$((${COVERWIDTH}/${COVERHEIGHT}))
 LOGO=~/template/logo.png
 DEST='resized'
-OPTIONS='-depth 8 -quality 80 -strip -interlace Plane'
+OPTIONS='-depth 8 -quality 90 -strip -interlace Plane'
 
 # Defining some colors for log()
 RED="\E[31m"
@@ -49,7 +49,7 @@ fi
 
 # For each files
 for image in {*.jpg,*.JPG} ; do
-    if [ ! -f ${image} ] ; then
+    if [ ! -f "${image}" ] ; then
         echo -e "${RED}# No file found in ${PWD}${RESET}"
         continue
     fi
@@ -87,7 +87,7 @@ for image in {*.jpg,*.JPG} ; do
     else
         echo -e "${RED}Converting image ${image}${RESET}"
 
-        convert -resize ${MAXWIDTH}x${MAXHEIGHT} ${image} ${DEST}/${image}
-        composite ${OPTIONS} -gravity SouthEast ${LOGO} ${DEST}/${image} ${DEST}/${image}
+        convert -resize ${MAXWIDTH}x${MAXHEIGHT} "${image}" "${DEST}/${image}"
+        composite ${OPTIONS} -gravity SouthEast "${LOGO}" "${DEST}/${image}" "${DEST}/${image}"
     fi
 done
