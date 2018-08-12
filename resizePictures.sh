@@ -29,10 +29,14 @@ COVERHEIGHT=245
 
 # Defining some generic variables
 COVERFILE="cover.jpg"
-COVERRATIO=$((${COVERWIDTH}/${COVERHEIGHT}))
+COVERRATIO=`bc -l <<< "${COVERWIDTH}/${COVERHEIGHT}"`
 LOGO=~/template/logo.png
+IMAGERATIO=`bc -l <<< "${MAXWIDTH}/${MAXHEIGHT}"`
 DEST='resized'
 OPTIONS='-depth 8 -quality 90 -strip -interlace Plane'
+BORDERWIDTH=12
+BORDERTHINWIDTH=1
+BORDERTHINPLACEMENT=8
 
 # Defining some colors for log()
 RED="\E[31m"
@@ -49,45 +53,79 @@ fi
 
 # For each files
 for image in {*.jpg,*.JPG} ; do
+  if [ "${image}" != "*.JPG" ] && [ "${image}" != "*.jpg" ] ; then
     if [ ! -f "${image}" ] ; then
-        echo -e "${RED}# No file found in ${PWD}${RESET}"
-        continue
+      echo -e "${RED}# ${image} is not a valid image file in ${PWD}${RESET}"
+      continue
+    fi
+
+    # Extract image dimensions
+    WIDTH=`identify -format "%[fx:w]" ${image}`
+    HEIGHT=`identify -format "%[fx:h]" ${image}`
+
+    # Compute image ratio
+    TMPIMAGERATIO=`bc -l <<< "${WIDTH}/${HEIGHT}"`
+
+    # Define image size
+    NEWWIDTH=${WIDTH}
+    NEWHEIGHT=${HEIGHT}
+
+    # Compute new image size based on image type
+    if [ "${image}" == "${COVERFILE}" ] ; then
+      # Compute temporary with or height to crop correctly image
+      if [ "${COVERRATIO}" -gt "${TMPIMAGERATIO}" ] ; then
+        NEWHEIGHT=$((${WIDTH}*${COVERHEIGHT}/${COVERWIDTH}))
+      else
+        NEWWIDTH=$((${HEIGHT}*${COVERWIDTH}/${COVERHEIGHT}))
+      fi
+    else
+      # Compute temporary with or height to crop correctly image
+      RATIO=`echo ${IMAGERATIO}'<'${TMPIMAGERATIO} | bc -l`
+      if [ ${RATIO} -eq 1 ] ; then
+        NEWWIDTH=${MAXWIDTH}
+        NEWHEIGHT=`LC_NUMERIC="en_US.UTF-8" printf "%.0f" $(bc -l <<< "scale=1; ${HEIGHT}*${NEWWIDTH}/${WIDTH}")`
+      else
+        NEWHEIGHT=${MAXHEIGHT}
+        NEWWIDTH=`LC_NUMERIC="en_US.UTF-8" printf "%.0f" $(bc -l <<< "scale=1; ${WIDTH}*${NEWHEIGHT}/${HEIGHT}")`
+      fi
     fi
 
     # Convert cover
     if [ "${image}" == "${COVERFILE}" ] ; then
-        echo -e "${GREEN}Converting cover file${RESET}"
+      echo -e "${GREEN}Converting cover file${RESET}"
 
-        # Extract image dimensions
-        WIDTH=`identify -format "%[fx:w]" ${image}`
-        HEIGHT=`identify -format "%[fx:h]" ${image}`
+      # Crop image with the good ratio
+      convert -gravity Center -crop ${NEWWIDTH}x${NEWHEIGHT}+0+0 +repage ${image} /tmp/${image}
 
-        # Compute image ratio
-        IMAGERATIO=$((${WIDTH}/${HEIGHT}))
+      # Rezise cover and save it
+      convert ${OPTIONS} -resize ${COVERWIDTH}x${COVERHEIGHT} /tmp/${image} ${DEST}/${image}
 
-        # Define temporary image size (used for crop)
-        TMPWIDTH=${WIDTH}
-        TMPHEIGHT=${HEIGHT}
-
-        # Compute temporary with or height to crop correctly image
-        if [ "${COVERRATIO}" -gt "${IMAGERATIO}" ] ; then
-            TMPHEIGHT=$((${WIDTH}*${COVERHEIGHT}/${COVERWIDTH}))
-        else
-            TMPWIDTH=$((${HEIGHT}*${COVERWIDTH}/${COVERHEIGHT}))
-        fi
-
-        # Crop image with the good ratio
-        convert -gravity Center -crop ${TMPWIDTH}x${TMPHEIGHT}+0+0 +repage ${image} /tmp/${image}
-
-        # Rezise cover and save it
-        convert ${OPTIONS} -resize ${COVERWIDTH}x${COVERHEIGHT} /tmp/${image} ${DEST}/${image}
-
-        # Remove temporary file
-        rm /tmp/${image}
+      # Remove temporary file
+      rm /tmp/${image}
     else
-        echo -e "${RED}Converting image ${image}${RESET}"
+      echo -e "${RED}Converting image ${image}${RESET}"
 
-        convert -resize ${MAXWIDTH}x${MAXHEIGHT} "${image}" "${DEST}/${image}"
-        composite ${OPTIONS} -gravity SouthEast "${LOGO}" "${DEST}/${image}" "${DEST}/${image}"
+      # Compute positions for black border
+      BORDERUPPERLEFT=$((${BORDERWIDTH}/2)),$((${BORDERWIDTH}/2))
+      BORDERLOWERLEFT=$((${BORDERWIDTH}/2)),$((${NEWHEIGHT} - ${BORDERWIDTH}/2))
+      BORDERLOWERRIGHT=$((${NEWWIDTH} - ${BORDERWIDTH}/2)),$((${NEWHEIGHT} - ${BORDERWIDTH}/2))
+      BORDERUPPERRIGHT=$((${NEWWIDTH} - ${BORDERWIDTH}/2)),$((${BORDERWIDTH}/2))
+
+      # Compute positions for white border
+      THINBORDERUPPERLEFT=${BORDERTHINPLACEMENT},${BORDERTHINPLACEMENT}
+      THINBORDERLOWERLEFT=${BORDERTHINPLACEMENT},$((${NEWHEIGHT}-${BORDERTHINPLACEMENT} ))
+      THINBORDERLOWERRIGHT=$((${NEWWIDTH}-${BORDERTHINPLACEMENT} )),$((${NEWHEIGHT}-${BORDERTHINPLACEMENT} ))
+      THINBORDERUPPERRIGHT=$((${NEWWIDTH}-${BORDERTHINPLACEMENT} )),${BORDERTHINPLACEMENT}
+
+      # resize and add border on image
+      convert -resize ${NEWWIDTH}x${NEWHEIGHT} \
+      "${image}" \
+      -fill transparent -stroke black -strokewidth ${BORDERWIDTH} -draw "stroke-linecap square path 'M ${BORDERUPPERLEFT} L ${BORDERLOWERLEFT} L ${BORDERLOWERRIGHT} L ${BORDERUPPERRIGHT} L ${BORDERUPPERLEFT} Z'" \
+      -fill transparent -stroke white -strokewidth ${BORDERTHINWIDTH} -draw "stroke-linecap square path 'M ${THINBORDERUPPERLEFT} L ${THINBORDERLOWERLEFT} L ${THINBORDERLOWERRIGHT} L ${THINBORDERUPPERRIGHT} L ${THINBORDERUPPERLEFT} Z'" \
+      "${DEST}/${image}"
+
+      # Add logo on imagedow
+      composite ${OPTIONS} -gravity SouthEast "${LOGO}" "${DEST}/${image}" "${DEST}/${image}"
     fi
+  fi
 done
