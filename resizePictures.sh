@@ -104,6 +104,7 @@ for image in {*.jpg,*.JPG} ; do
       rm /tmp/${image}
     else
       echo -e "${RED}Converting image ${image}${RESET}"
+      echo -e "  -> ${BLUE}Create JPG version${RESET}"
 
       # Compute positions for black border
       BORDERUPPERLEFT=$((${BORDERWIDTH}/2)),$((${BORDERWIDTH}/2))
@@ -116,16 +117,33 @@ for image in {*.jpg,*.JPG} ; do
       THINBORDERLOWERLEFT=${BORDERTHINPLACEMENT},$((${NEWHEIGHT}-${BORDERTHINPLACEMENT} ))
       THINBORDERLOWERRIGHT=$((${NEWWIDTH}-${BORDERTHINPLACEMENT} )),$((${NEWHEIGHT}-${BORDERTHINPLACEMENT} ))
       THINBORDERUPPERRIGHT=$((${NEWWIDTH}-${BORDERTHINPLACEMENT} )),${BORDERTHINPLACEMENT}
-
+      
       # resize and add border on image
       convert -resize ${NEWWIDTH}x${NEWHEIGHT} \
       "${image}" \
-      -fill transparent -stroke black -strokewidth ${BORDERWIDTH} -draw "stroke-linecap square path 'M ${BORDERUPPERLEFT} L ${BORDERLOWERLEFT} L ${BORDERLOWERRIGHT} L ${BORDERUPPERRIGHT} L ${BORDERUPPERLEFT} Z'" \
+      -fill transparent -stroke black -strokewidth ${BORDERWIDTH} -draw "stroke-linecap square path 'M $((${BORDERWIDTH}/2)),0 L ${BORDERLOWERLEFT} L ${BORDERLOWERRIGHT} L ${BORDERUPPERRIGHT} L ${BORDERUPPERLEFT} Z'" \
       -fill transparent -stroke white -strokewidth ${BORDERTHINWIDTH} -draw "stroke-linecap square path 'M ${THINBORDERUPPERLEFT} L ${THINBORDERLOWERLEFT} L ${THINBORDERLOWERRIGHT} L ${THINBORDERUPPERRIGHT} L ${THINBORDERUPPERLEFT} Z'" \
       "${DEST}/${image}"
 
       # Add logo on imagedow
       composite ${OPTIONS} -gravity SouthEast "${LOGO}" "${DEST}/${image}" "${DEST}/${image}"
+
+      # Create same version but in PNG and with box shadow
+      echo -e "  -> ${BLUE}Create PNG version${RESET}"
+      filename=$(basename -- "${image}")
+      extension="${filename##*.}"
+      filename="${filename%.*}"
+
+      convert -resize ${NEWWIDTH}x${NEWHEIGHT} \
+      "${image}" \
+      -fill transparent -stroke black -strokewidth ${BORDERWIDTH} -draw "stroke-linecap square path 'M $((${BORDERWIDTH}/2)),0 L ${BORDERLOWERLEFT} L ${BORDERLOWERRIGHT} L ${BORDERUPPERRIGHT} L ${BORDERUPPERLEFT} Z'" \
+      -fill transparent -stroke white -strokewidth ${BORDERTHINWIDTH} -draw "stroke-linecap square path 'M ${THINBORDERUPPERLEFT} L ${THINBORDERLOWERLEFT} L ${THINBORDERLOWERRIGHT} L ${THINBORDERUPPERRIGHT} L ${THINBORDERUPPERLEFT} Z'" \
+      \( +clone -background black -shadow 80x3+2+2 \) \
+      +swap -background transparent -layers merge +repage \
+      "${DEST}/${filename}.png"
+
+      # Add logo on imagedow
+      composite ${OPTIONS} -gravity SouthEast "${LOGO}" "${DEST}/${filename}.png" "${DEST}/${filename}.png"
     fi
   fi
 done
